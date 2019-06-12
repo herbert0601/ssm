@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+	http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.2.xsd
+	http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.2.xsd http://www.springframework.org/schema/tx
+	http://www.springframework.org/schema/tx/spring-tx-4.2.xsd">
+
+    <!--spring配置文件主要配置业务相关的，核心点：数据源，与mybatis整合，事务控制-->
+
+<!--    &lt;!&ndash; 方式2：扫描包，排除controller &ndash;&gt;
+    <context:component-scan base-package="com.herbert">
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>-->
+
+    <!-- 方式1：扫描包 ，扫描service层，推荐-->
+    <context:component-scan base-package="com.herbert.service"/>
+
+    <!-- 数据库连接池配置 -->
+    <!-- 加载配置文件 -->
+    <context:property-placeholder location="classpath:db.properties" />
+    <!-- 数据库连接池 -->
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource"
+          destroy-method="close">
+        <property name="url" value="${jdbc.url}" />
+        <property name="username" value="${jdbc.username}" />
+        <property name="password" value="${jdbc.password}" />
+        <property name="driverClassName" value="${jdbc.driver}" />
+        <property name="maxActive" value="10" />
+        <property name="minIdle" value="5" />
+    </bean>
+
+    <!-- 整合mybatis配置 -->
+    <!-- 让spring管理sqlsessionfactory 使用mybatis和spring整合包中的 -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!-- 数据库连接池 -->
+        <property name="dataSource" ref="dataSource" />
+        <!-- 加载mybatis的全局配置文件 -->
+        <property name="configLocation" value="classpath:SqlMapConfig.xml" />
+        <!-- 指定mapper文件的位置 -->
+        <property name="mapperLocations" value="classpath:mapper/*.xml" />
+    </bean>
+
+    <!-- 配置mapper扫描器,将mybatis接口的实现加入ioc容器-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!-- 扫描mapper包下所有接口，加入ioc容器 -->
+        <property name="basePackage" value="com.herbert.mapper" />
+    </bean>
+
+    <!-- 事务管理器 -->
+    <bean id="transactionManager"
+          class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <!-- 数据源 -->
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+    <!-- 两种事务控制，推荐用xml配置 -->
+    <!-- 方式1：注解方式管理事务，基于注解的声明式事务-->
+    <!--<tx:annotation-driven transaction-manager="transactionManager"></tx:annotation-driven>-->
+    <!-- 方式2：自己配置切面管理事务，基于xml的声明式事务 -->
+    <!-- 开启基于注解的事务，使用xml形式配置 -->
+    <aop:config>
+        <!-- 切入点表达式:哪里需要事务管理 -->
+        <aop:pointcut id="aopPointcut" expression="execution(* com.herbert.service.*.*(..))" />
+        <!-- 事务增强：怎么管理 -->
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="aopPointcut" />
+    </aop:config>
+    <!-- 通知：配置事务增强(传播行为，只读...)，事务如何切入(以什么命名的方法) -->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <!-- 传播行为 -->
+            <tx:method name="save*" propagation="REQUIRED" />
+            <tx:method name="insert*" propagation="REQUIRED" />
+            <tx:method name="add*" propagation="REQUIRED" />
+            <tx:method name="create*" propagation="REQUIRED" />
+            <tx:method name="delete*" propagation="REQUIRED" />
+            <tx:method name="update*" propagation="REQUIRED" />
+            <tx:method name="find*" propagation="SUPPORTS" read-only="true" />
+            <tx:method name="select*" propagation="SUPPORTS" read-only="true" />
+            <tx:method name="get*" propagation="SUPPORTS" read-only="true" />
+        </tx:attributes>
+    </tx:advice>
+</beans>
